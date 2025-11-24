@@ -118,3 +118,4 @@ if __name__ == '__main__':
             status = "VALID" if type(message) == str else "INVALID"
             message_str = '\n\t  '.join(message)
             print(f"  Approach: {approach}\n    Status: {status}\n    Reason: {message if status == 'VALID' else message_str}\n")
+

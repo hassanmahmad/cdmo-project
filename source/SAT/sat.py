@@ -123,8 +123,7 @@ def sports_tournament_schedule(n=6, timeout=300):
 
     #  reduce symmetries
     for p in range(period):
-        for w in range(1, 1):
-            solver.add(schedule[p][w][0] < schedule[p][w][1])
+        solver.add(schedule[p][0][0] < schedule[p][0][1])
 
     # solving the model
 
