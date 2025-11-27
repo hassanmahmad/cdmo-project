@@ -11,20 +11,26 @@ RUN apt-get update && apt-get install -y \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libegl1 \
+    libxkbcommon0 \
+    libdbus-1-3 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install MiniZinc
-RUN wget https://github.com/MiniZinc/MiniZincIDE/releases/download/2.8.5/MiniZincIDE-2.8.5-bundle-linux-x86_64.tgz -O minizinc.tgz && \
+RUN wget https://github.com/MiniZinc/MiniZincIDE/releases/download/2.9.1/MiniZincIDE-2.9.1-bundle-linux-x86_64.tgz -O minizinc.tgz && \
     tar -xzf minizinc.tgz && \
-    mv MiniZincIDE-2.8.5-bundle-linux-x86_64 /opt/minizinc && \
+    mv MiniZincIDE-2.9.1-bundle-linux-x86_64 /opt/minizinc && \
     ln -s /opt/minizinc/bin/minizinc /usr/local/bin/minizinc && \
     rm minizinc.tgz
 
-# Install Python packages
 RUN pip3 install z3-solver pulp
 
-# Set working directory
+# set pwd
 WORKDIR /app
 
-# Copy source files
+# Copy files
 COPY source/ /app/source/
 COPY solution_checker.py /app/
 COPY run_all.py /app/
@@ -32,5 +38,5 @@ COPY run_all.py /app/
 # Create results directories
 RUN mkdir -p /app/res/CP /app/res/SMT /app/res/MIP
 
-# Default command
+# command
 CMD ["python3", "run_all.py"]

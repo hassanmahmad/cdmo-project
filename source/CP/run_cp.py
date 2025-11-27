@@ -11,9 +11,11 @@ TIMEOUT = 300
 
 EXPERIMENTS = [
     ('gecode', 'cp.mzn', 'gecode_default'),
-    ('gecode', 'cp_fail_first.mzn', 'gecode_fail_first'),
-    ('gecode', 'cp_dom_w_deg.mzn', 'gecode_dom_w_deg'),
+    ('gecode', 'cp_fail_first.mzn', 'gecode_fail_first_indomain_min'),
+    ('gecode', 'cp_dom_W_deg.mzn', 'gecode_dom_w_deg_indomain_random'),
+    ('gecode', 'cp_most_constrained.mzn', 'gecode_most_constrained_indomain_min'),
     ('chuffed', 'cp.mzn', 'chuffed_default'),
+    ('chuffed', 'cp_fail_first.mzn', 'chuffed_fail_first_indomain_random'),
 ]
 
 def find_minizinc():
@@ -135,7 +137,7 @@ def main():
         print(f"Saved: {output_file}")
     
     print("\n" + "=" * 70)
-    print("CP COMPLETE - Validate with: python check_solution.py res/CP")
+    print("CP COMPLETE")
     print("=" * 70)
 
 if __name__ == '__main__':

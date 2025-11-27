@@ -1,4 +1,6 @@
 include "alldifferent.mzn";
+include "global_cardinality_low_up.mzn";
+include "count.mzn";
 
 % total number of teams
 int: n;
@@ -34,11 +36,11 @@ constraint forall(w in 1..Weeks)(alldifferent([schedule[p,w,s] | p in 1..Period,
 constraint forall(i,j in 1..n where i<j)(sum(p in 1..Period, w in 1..Weeks)((schedule[p,w,1]==i /\ schedule[p,w,2]==j) \/ (schedule[p,w,2]==i /\ schedule[p,w,1]==j))==1 );
 
 % each team plays atmost twice in the same period in the tournament across weeks
-constraint forall(i in 1..n)(forall(p in 1..Period)(sum(s in 1..Slots, w in 1..Weeks)(schedule[p,w,s]==i)<=2));
+constraint forall(p in 1..Period)(global_cardinality_low_up([schedule[p,w,s] | w in 1..Weeks, s in 1..Slots], [i | i in 1..n], [0 | i in 1..n], [2 | i in 1..n]));
 
 % balance the number of home and away games for the teams
-constraint forall(t in 1..n) (sum(p in 1..Period, w in 1..Weeks)(schedule[p,w,1] == t) in LowerBound..UpperBound);
-constraint forall(t in 1..n) (sum(p in 1..Period, w in 1..Weeks)(schedule[p,w,2] == t) in LowerBound..UpperBound);
+constraint forall(i in 1..n) (count([schedule[p,w,1] | p in 1..Period, w in 1..Weeks], i) in LowerBound..UpperBound);
+constraint forall(i in 1..n) (count([schedule[p,w,2] | p in 1..Period, w in 1..Weeks], i) in LowerBound..UpperBound);
 
 % break symmetry for the first week
 constraint forall(p in 1..Period, w in 1..1)(schedule[p,w,1] < schedule[p,w,2]);

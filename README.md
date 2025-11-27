@@ -35,8 +35,20 @@ docker build -t cdmo-project .
 ```
 
 ### Run All
+
+**Linux/macOS:**
 ```bash
+docker run --rm -v $(pwd)/res:/app/res cdmo-project
+```
+
+**Windows (PowerShell):**
+```powershell
 docker run --rm -v ${PWD}/res:/app/res cdmo-project
+```
+
+**Windows (CMD):**
+```cmd
+docker run --rm -v %cd%/res:/app/res cdmo-project
 ```
 
 ### Run Individual
@@ -44,6 +56,34 @@ docker run --rm -v ${PWD}/res:/app/res cdmo-project
 docker run --rm -v ${PWD}/res:/app/res cdmo-project python3 source/CP/run_cp.py
 docker run --rm -v ${PWD}/res:/app/res cdmo-project python3 source/SMT/smt.py
 docker run --rm -v ${PWD}/res:/app/res cdmo-project python3 source/MIP/mip.py
+```
+
+### Check Solutions
+
+**Linux/macOS:**
+```bash
+docker run --rm -v $(pwd)/res:/app/res cdmo-project python3 solution_checker.py res/CP
+docker run --rm -v $(pwd)/res:/app/res cdmo-project python3 solution_checker.py res/SMT
+docker run --rm -v $(pwd)/res:/app/res cdmo-project python3 solution_checker.py res/MIP
+```
+
+**Windows (PowerShell):**
+```powershell
+docker run --rm -v ${PWD}/res:/app/res cdmo-project python3 solution_checker.py res/CP
+docker run --rm -v ${PWD}/res:/app/res cdmo-project python3 solution_checker.py res/SMT
+docker run --rm -v ${PWD}/res:/app/res cdmo-project python3 solution_checker.py res/MIP
+```
+
+**Windows (CMD):**
+```cmd
+docker run --rm -v %cd%/res:/app/res cdmo-project python3 solution_checker.py res/CP
+docker run --rm -v %cd%/res:/app/res cdmo-project python3 solution_checker.py res/SMT
+docker run --rm -v %cd%/res:/app/res cdmo-project python3 solution_checker.py res/MIP
+```
+
+### Check All
+```bash
+docker run --rm -v ${PWD}/res:/app/res cdmo-project bash -c "python3 solution_checker.py res/CP && python3 solution_checker.py res/SMT && python3 solution_checker.py res/MIP"
 ```
 
 ## Results Format

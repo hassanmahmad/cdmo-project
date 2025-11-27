@@ -45,8 +45,7 @@ constraint forall(i in 1..n) (count([schedule[p,w,2] | p in 1..Period, w in 1..W
 % break symmetry for the first week
 constraint forall(p in 1..Period, w in 1..1)(schedule[p,w,1] < schedule[p,w,2]);
 
-%solve satisfy;
-solve :: int_search(schedule, first_fail, indomain_min) satisfy;
+solve :: int_search(schedule, most_constrained, indomain_min) satisfy;
 
 output [
   "Weeks: " ++ show(Weeks) ++ "\n" ++ "Periods (in each week): " ++ show(Period) ++ "\n" ++ "Teams: " ++ show(n) ++ "\n" ++
