@@ -1,0 +1,471 @@
+\documentclass[12pt,a4paper]{report}
+
+% -------------------------
+% Packages
+% -------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{multirow}
+\usepackage{siunitx}
+\usepackage{float}
+\usepackage{microtype}
+\usepackage{setspace}
+
+\geometry{top=2cm, bottom=2cm, left=2.5cm, right=2.5cm}
+
+\setstretch{1.02}
+\raggedbottom
+
+\numberwithin{equation}{chapter}
+
+% -------------------------
+% Document
+% -------------------------
+\begin{document}
+
+\title{Sports Tournament Scheduling problem}
+\author{
+Hassan Mujtaba Ahmed \\
+\texttt{hassan.ahmed5@studio.unibo.it} 
+\and 
+Muhammad Talha Sohail Chattha \\
+\texttt{muhammadtalha.chatha@studio.unibo.it}
+}
+\date{November 2025}
+\maketitle
+
+
+
+\tableofcontents
+\clearpage
+
+%========================================
+\chapter{Introduction}
+
+The Sports tournament scheduling problem requires arranging $n$ even teams so that each team plays every other team exactly once over $W=n-1$ weeks. Each week contains $P=n/2$ periods. The challenge is to compute a feasible schedule satisfying structural fairness and operational constraints.
+
+Practical constraints imposed include:
+\begin{itemize}[itemsep=2pt]
+    \item every team plays exactly once per week;
+    \item no team plays itself;
+    \item every unordered pair of teams meets exactly once in the tournament;
+    \item a team appears in a given period at most twice during the tournament;
+    \item home/away games for each team are balanced.
+\end{itemize}
+
+The Sports tournament scheduling problem is combinatorial and known to be computationally challenging as $n$ grows. Different modelling paradigms exploit different reasoning techniques:
+
+\begin{description}[itemsep=3pt]
+    \item[Constraint Programming (CP)] relies on finite-domain integer variables, global constraints (e.g. \texttt{alldifferent}), and propagation with search heuristics.
+    \item[SAT encoding] translates assignments into Boolean literals and enforces cardinalities using auxiliary Boolean variables to obtain compact, propagating encodings.
+    \item[Mixed Integer Programming (MIP)] models the problem with binary variables and linear constraints, often requiring auxiliary variables to linearise non-linear constructs (e.g., pairwise match detection).
+\end{description}
+
+This report provides: (i) formal descriptions of the three models, (ii) implementation notes and solver settings, and (iii) experimental results comparing runtimes and solver behaviour for $n=6,8,10$.
+
+\clearpage
+
+%========================================
+\chapter{Constraint Programming (CP) Model}
+
+\section{Decision variables}
+
+Let the set of teams be $T=\{1,\dots,n\}$, with $n$ even Weeks. Weeks and periods are:
+\[
+W=\{1,\dots,n-1\},\qquad P=\{1,\dots,n/2\}.
+\]
+We use the integer decision variable
+\begin{equation}
+\text{schedule}[p,w,s] \in T,
+\qquad p\in P,\; w\in W,\; s\in\{1,2\},
+\label{eq:schedule-var}
+\end{equation}
+where slot $s=1$ denotes the \emph{home} team and $s=2$ denotes the \emph{away} team.
+
+For compactness we also use indicator expressions such as $[\text{schedule}[p,w,s]=t]$ to denote a Boolean (1 if true, 0 otherwise) used inside sums for counting constraints.
+
+\section{Hard constraints}
+
+All constraints below are enforced as hard constraints.
+
+\subsection{No self-play}
+\begin{equation}
+\forall p\in P,\;\forall w\in W:\qquad 
+\text{schedule}[p,w,1] \neq \text{schedule}[p,w,2].
+\label{eq:no-self}
+\end{equation}
+
+\subsection{Each team appears exactly once per week}
+
+Each team must appear exactly once in each week. Using an \texttt{alldifferent} global constraint:
+\begin{equation}
+\forall w\in W:\qquad 
+\text{alldifferent}\big(\{\text{schedule}[p,w,s]\mid p\in P,\ s\in\{1,2\}\}\big).
+\label{eq:alldiff-week}
+\end{equation}
+
+Equivalently this enforces that for every team $t$ and every week $w$:
+\begin{equation}
+\sum_{p\in P}\sum_{s=1}^{2} [\text{schedule}[p,w,s]=t] = 1.
+\label{eq:team-once-week}
+\end{equation}
+
+\subsection{Pairwise uniqueness}
+
+Every unordered pair $\{i,j\}$ must meet exactly once across all weeks:
+\begin{equation}
+\begin{split}
+\forall i<j:\quad \sum_{p\in P}\sum_{w\in W} \Big(&[\text{schedule}[p,w,1]=i]\,[\text{schedule}[p,w,2]=j] + \\
+&[\text{schedule}[p,w,1]=j]\,[\text{schedule}[p,w,2]=i]\Big) = 1.
+\end{split}
+\label{eq:single-rr}
+\end{equation}
+
+
+\subsection{Period fairness}
+A team should not appear more than twice in the same period across all weeks:
+\begin{equation}
+\forall t\in T,\ \forall p\in P:\qquad
+\sum_{w\in W}\sum_{s=1}^{2} [\text{schedule}[p,w,s]=t] \le 2.
+\label{eq:period-limit}
+\end{equation}
+
+\subsection{Home/away balance}
+Let $H_t$ and $A_t$ denote the number of home and away games for team $t$ across all weeks:
+\[
+H_t=\sum_{p\in P}\sum_{w\in W} [\text{schedule}[p,w,1]=t],\qquad
+A_t=\sum_{p\in P}\sum_{w\in W} [\text{schedule}[p,w,2]=t].
+\]
+We enforce balance within one:
+\begin{equation}
+\forall t\in T:\qquad |H_t - A_t|\le 1.
+\label{eq:home-away-balance}
+\end{equation}
+
+
+\subsection{Symmetry breaking}
+To reduce symmetric solutions we fix an ordering on week~1:
+\begin{equation}
+\forall p\in P:\qquad \text{schedule}[p,1,1] < \text{schedule}[p,1,2].
+\label{eq:sym-break}
+\end{equation}
+
+
+\section{Search and implementation notes}
+
+Our MiniZinc implementation uses array variables and the `alldifferent` constraint. We tested three different search strategies:
+
+\begin{enumerate}[itemsep=2pt]
+    \item \textbf{default:} \texttt{solve satisfy;}
+    \item \textbf{first fail:} \texttt{int\_search(schedule, first\_fail, indomain\_min);}
+    \item \textbf{dom/wdeg:} \texttt{int\_search(schedule, dom\_wdeg, indomain\_random);}
+\end{enumerate}
+
+Solvers: Gecode and Chuffed (MiniZinc solvers). 
+
+\section{CP results (summary)}
+
+Table~\ref{tab:cp-runtimes} reports the observed runtimes for the CP experiments (Gecode and Chuffed) on instances $n=\{6,8,10\}$.
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{c|c|c|c|c}
+\toprule
+\textbf{Teams $n$} & \textbf{Strategy} & \textbf{Time (s)} & \textbf{Optimal} & \textbf{Solution Found} \\
+\midrule
+6 & Default & 0 & Yes & Yes \\
+6 & First Fail & 0 & Yes & Yes \\
+6 & Dom w/ Deg & 0 & Yes & Yes \\
+8 & Default & 0 & Yes & Yes \\
+8 & First Fail & 27 & Yes & Yes \\
+8 & Dom w/ Deg & 0 & Yes & Yes \\
+10 & Default & 300 & No & - \\
+10 & First Fail & 5 & Yes & Yes \\
+10 & Dom w/ Deg & 61 & Yes & Yes \\
+\midrule
+\multicolumn{2}{c|}{Chuffed (default)} & & & \\
+6 & & 0 & Yes & Yes \\
+8 & & 1 & Yes & Yes \\
+10 & & 300 & No & - \\
+\bottomrule
+\end{tabular}
+
+\caption{CP solver results for different strategies and number of teams.Time limit: 300\,s}
+\label{tab:cp-runtimes}
+\end{table}
+
+\clearpage
+
+
+
+%========================================
+\chapter{SAT Model}
+
+\section{Model Overview}
+
+The SAT encoding uses integer schedule variables, but constraints are expressed as Boolean combinations, emulating a pure SAT approach. Each variable $\text{schedule}[p,w,s]$ takes integer values from $1$ to $n$, but all constraints are reformulated using Boolean literals:
+
+\[
+\ell_{p,w,s,t} \equiv (\text{schedule}[p,w,s] = t), \quad t \in 1\dots n.
+\]
+
+Constraints are implemented via sequential counters, a method for efficiently encoding cardinality restrictions with auxiliary Boolean variables.
+
+\section{Sequential Counter Encodings}
+
+\subsection*{Definitions}
+
+For a set of Boolean variables $\{x_1, \dots, x_m\}$, sequential counters encode:
+
+\begin{itemize}[itemsep=2pt]
+    \item \textbf{at\_most\_one}: $\sum_i x_i \le 1$
+    \item \textbf{at\_least\_one}: $\sum_i x_i \ge 1$
+    \item \textbf{exactly\_one}: $\sum_i x_i = 1$
+    \item \textbf{at\_most\_k}: $\sum_i x_i \le k$
+    \item \textbf{at\_least\_k}: $\sum_i x_i \ge k$
+    \item \textbf{exactly\_k}: $\sum_i x_i = k$
+\end{itemize}
+
+Auxiliary variables $s_{i,j}$ track the cumulative count of True variables up to position $i$, enabling propagation and efficient SAT reasoning.
+
+\section{Constraints}
+
+\subsection{No Self-Play}
+\[
+\ell_{p,w,0,t} \Rightarrow \neg \ell_{p,w,1,t}, \quad \forall t
+\]
+
+\subsection{Weekly Uniqueness}
+Each team plays exactly once per week:
+\[
+\text{exactly\_one\_seq}(\{\ell_{p,w,s,t} \mid p=1\dots P, s=0,1\})
+\]
+
+\subsection{Unique Pair Matches}
+Each pair of teams $\{t_1,t_2\}$ meets exactly once:
+\[
+\text{exactly\_one\_seq}(\{ \ell_{p,w,0,t_1} \wedge \ell_{p,w,1,t_2} \; \vee \; \ell_{p,w,0,t_2} \wedge \ell_{p,w,1,t_1} \})
+\]
+
+\subsection{Period Limit}
+No team appears more than twice per period:
+\[
+\text{at\_most\_k\_seq}(\{\ell_{p,w,s,t} \mid w,s\}, 2)
+\]
+
+\subsection{Home/Away Balance}
+Home and away game counts are constrained:
+\[
+\text{LowerBound} \le \sum_{p,w} \ell_{p,w,0,t} \le \text{UpperBound}, \quad
+\text{LowerBound} \le \sum_{p,w} \ell_{p,w,1,t} \le \text{UpperBound}
+\]
+
+\subsection{Symmetry Breaking}
+First week order fixed:
+\[
+\ell_{p,0,0,t} \Rightarrow \neg \ell_{p,0,1,t}, \quad \forall p
+\]
+
+\section{Implementation and Solver}
+
+The model was implemented in Python using Z3, translating integer variables to Boolean literals for sequential counters. Each constraint was encoded as described above. The solver enforced all constraints and generated feasible schedules.
+
+\section{Results}
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{c|c|c|c|c}
+\toprule
+\textbf{Teams $n$} & \textbf{Time (s)} & \textbf{Optimal} & \textbf{Solution Found} & \textbf{Notes} \\
+\midrule
+6 & 0 & Yes & Yes & Instant \\
+8 & 0 & Yes & Yes & Instant \\
+10 & 7 & Yes & Yes & Slightly longer due to larger search space \\
+\bottomrule
+\end{tabular}
+\caption{Runtime of the SAT model using Z3.}
+\label{tab:sat-results}
+\end{table}
+
+\newpage
+
+
+
+%========================================
+\chapter{Mixed Integer Programming (MIP) Model}
+
+\section{Model overview}
+
+The MIP model uses binary variables to represent team assignments into slots and linear constraints to represent all logical relations. Non-linear interactions (product of binaries) are linearised using auxiliary binary variables and standard big-M constraints. The formulation was implemented in Python using PULP and solved with the open-source CBC solver.
+
+\section{Decision variables}
+
+Main binary variables:
+\begin{equation}
+s_{p,w,s,t}\in\{0,1\},
+\end{equation}
+with $s_{p,w,s,t}=1$ iff team $t$ occupies slot $s$ in period $p$ during week $w$.
+
+Auxiliary match-detection binaries are introduced to linearise conjunctions:
+\begin{equation}
+m1_{p,w,t_1,t_2},\quad m2_{p,w,t_1,t_2}\in\{0,1\},
+\end{equation}
+representing whether $(t_1,t_2)$ meet in the oriented combinations (home/away) at $(p,w)$.
+
+\section{Constraints}
+
+\subsection{Slot assignment}
+Each slot must be occupied by exactly one team:
+\begin{equation}
+\forall p,w,s:\qquad \sum_{t} s_{p,w,s,t} = 1.
+\label{eq:mip-slot}
+\end{equation}
+
+\subsection{No self-match}
+\begin{equation}
+\forall p,w,t:\qquad s_{p,w,0,t} + s_{p,w,1,t} \le 1.
+\label{eq:mip-noself}
+\end{equation}
+
+\subsection{Each team plays exactly once per week}
+\begin{equation}
+\forall w,t:\qquad \sum_{p}\sum_{s} s_{p,w,s,t} = 1.
+\label{eq:mip-once-week}
+\end{equation}
+
+\subsection{Linearised pairwise uniqueness}
+Introduce $m1_{p,w,t_1,t_2}$ with constraints:
+\begin{align}
+m1_{p,w,t_1,t_2} &\le s_{p,w,0,t_1}, \\
+m1_{p,w,t_1,t_2} &\le s_{p,w,1,t_2}, \\
+m1_{p,w,t_1,t_2} &\ge s_{p,w,0,t_1} + s_{p,w,1,t_2} - 1,
+\end{align}
+(and similarly for $m2$ with swapped indices). Then enforce:
+\begin{equation}
+\forall t_1<t_2:\qquad \sum_{p,w} (m1_{p,w,t_1,t_2}+m2_{p,w,t_1,t_2}) = 1.
+\label{eq:mip-pairwise}
+\end{equation}
+
+\subsection{Period limit}
+\begin{equation}
+\forall t,p:\qquad \sum_{w}\sum_{s}s_{p,w,s,t} \le 2.
+\label{eq:mip-period}
+\end{equation}
+
+\subsection{Home/away balance}
+Let $H_t=\sum_{p,w} s_{p,w,0,t}$ and $A_t=\sum_{p,w} s_{p,w,1,t}$. Enforce:
+\begin{equation}
+-H_t + A_t \le 1,\qquad H_t - A_t \le 1.
+\label{eq:mip-homeaway}
+\end{equation}
+
+\subsection{Symmetry breaking}
+We linearise the ordering constraint on week~1 by introducing team indices multiplied by binaries:
+\begin{equation}
+\sum_t t\cdot s_{p,1,0,t} \le \sum_t t\cdot s_{p,1,1,t} - 1,\qquad \forall p.
+\label{eq:mip-sym}
+\end{equation}
+This is linear because $t$ is a constant and $s_{p,1,*,t}$ are binaries.
+
+\section{Complexity and model size}
+
+The binary variable count is $n^2(n-1)$ for $s_{p,w,s,t}$ plus $O(n^2PW)$ auxiliaries for $m$ variables. The number of constraints grows as $O(n^4)$ in the worst-case due to all pairwise linearisation terms, which explains the sharp runtime increase as $n$ grows.
+
+\section{MIP results}
+
+Table~\ref{tab:mip-results} reports the runtimes obtained with PULP + CBC (300\,s timeout).
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{c|ccc}
+\toprule
+$n$ & Time (s) & Optimal & Solution Found \\
+\midrule
+6  & 0   & Yes & Yes \\
+8  & 118 & Yes & Yes \\
+10 & 300 & No  & -   \\
+\bottomrule
+\end{tabular}
+\caption{MIP (PULP + CBC) results. Time limit: 300\,s.}
+\label{tab:mip-results}
+\end{table}
+
+\section{Discussion of MIP behaviour}
+
+The linearisation of conjunctions (pairwise matches) creates a large number of auxiliary variables and weak LP relaxations. While MIP provides a mathematically clean linear model, its LP bound strength for this combinatorial structure is insufficient to avoid extensive branching. Commercial solvers such as Gurobi often perform much better; however, with the open-source CBC solver the $n=10$ instance times out.
+
+\clearpage
+
+%========================================
+\chapter{Experimental Comparison and Discussion}
+
+\section{Aggregate comparison}
+
+Tables~\ref{tab:cp-runtimes}, \ref{tab:sat-results} and \ref{tab:mip-results} summarize runtimes. For clarity we present a condensed comparison table (Table~\ref{tab:combined}).
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{c|ccc}
+\toprule
+$n$ & CP (best) & SAT (Z3) & MIP (CBC) \\
+\midrule
+6  & 0  & 0 & 0 \\
+8  & 0  & 0 & 118 \\
+10 & 5  & 7 & 300 (timeout) \\
+\bottomrule
+\end{tabular}
+\caption{Best observed runtimes across seconds. For CP the best across tested strategies is reported.}
+\label{tab:combined}
+\end{table}
+
+\section{Observations}
+
+\begin{itemize}[itemsep=3pt]
+    \item \textbf{Small instances ($n\le 8$):} All paradigms can find feasible schedules quickly. SAT and CP (with good heuristics) often find solutions instantly.
+    \item \textbf{Medium instances ($n=10$):} CP with tuned search heuristics and SAT encoding is still competitive. MIP with CBC suffers from model size and weak LP bounds and hits the timeout.
+    \item \textbf{Effect of encoding:} Sequential counters in the SAT encoding provide strong propagation for cardinality constraints and scale linearly in auxiliary variables, making the SAT approach efficient for these cardinality-heavy constraints.
+    \item \textbf{Solver-dependent heuristics:} CP performance is sensitive to branching heuristics (first-fail vs dom/wdeg). SAT models rely on the underlying SAT engine's clause learning and propagation; Z3 performed still well here.
+\end{itemize}
+
+
+%========================================
+\chapter{Conclusions}
+
+This report compared CP, SAT, and MIP formulations of the Sports tournament scheduling problem. We provided formal models, implementation notes, and results on representative instances.
+
+Key conclusions:
+\begin{itemize}[itemsep=3pt]
+    \item CP and SAT encodings handled the tested instances effectively; SAT encoding (Z3) solved $n=10$ in 7\,s while MIP (CBC) timed out.
+    \item Sequential counters give SAT encodings a practical edge when many cardinality constraints must be enforced.
+    \item MIP linearization produces large models with weak relaxations for this problem; commercial MIP solvers may reduce this but are not always available.
+\end{itemize}
+
+
+
+%========================================
+\chapter*{Author Contribution}
+\addcontentsline{toc}{chapter}{Author}
+The project was completed at the end of November.
+Both the participants worked on all the parts of the problem.
+
+%========================================
+\begin{thebibliography}{9}
+\addcontentsline{toc}{chapter}{References}
+\bibitem{sinz05} Carsten Sinz, ``Towards an optimal CNF encoding of boolean cardinality constraints,'' \emph{Principles and Practice of Constraint Programming}, 2005.
+\bibitem{mzn} MiniZinc Team, \emph{MiniZinc: A Free Constraint Modelling Language}, \url{https://www.minizinc.org}.
+\bibitem{z3} L. de Moura and N. Bj{\o}rner, ``Z3: An Efficient SMT Solver,'' \emph{Tools and Algorithms for the Construction and Analysis of Systems}, 2008.
+\end{thebibliography}
+
+\end{document}

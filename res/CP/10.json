@@ -6,7 +6,7 @@
     "sol": []
   },
   "gecode_fail_first": {
-    "time": 5,
+    "time": 4,
     "optimal": true,
     "obj": null,
     "sol": [
@@ -203,7 +203,7 @@
     ]
   },
   "gecode_dom_w_deg": {
-    "time": 61,
+    "time": 57,
     "optimal": true,
     "obj": null,
     "sol": [

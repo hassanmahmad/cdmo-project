@@ -127,7 +127,7 @@
     ]
   },
   "gecode_fail_first": {
-    "time": 27,
+    "time": 29,
     "optimal": true,
     "obj": null,
     "sol": [

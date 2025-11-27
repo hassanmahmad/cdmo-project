@@ -7,6 +7,12 @@ import math
 from itertools import combinations
 from pulp import *
 
+SOLVERS = [
+    ('CBC', PULP_CBC_CMD),
+    ('HiGHS', HiGHS_CMD),
+    ('GLPK', GLPK_CMD),
+]
+
 def sports_tournament_schedule(n=6, timeout=300):
     
     # initialize variable from the data

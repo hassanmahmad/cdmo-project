@@ -162,11 +162,11 @@ def sports_tournament_schedule(n=6, timeout=300):
 if __name__ == '__main__':
     n = int(sys.argv[1])
     
-    print(f"Solving with SAT for n={n}...")
+    print(f"Solving with SMT for n={n}...")
     result = sports_tournament_schedule(n)
     
     # Save
-    output_dir = Path('../../res/SAT')
+    output_dir = Path('../../res/SMT')
     output_dir.mkdir(parents=True, exist_ok=True)
     
     with open(output_dir / f'{n}.json', 'w') as f:
