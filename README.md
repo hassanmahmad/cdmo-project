@@ -16,8 +16,8 @@ python run_all.py
 ### Run Individual
 ```bash
 python source/CP/run_cp.py
-python source/SMT/smt.py
-python source/MIP/mip.py
+python source/SMT/smt.py {number_of_teams}
+python source/MIP/mip.py {number_of_teams}
 ```
 
 ### Validate Results
